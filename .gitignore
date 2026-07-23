@@ -1,0 +1,66 @@
+# === Security & Secrets ===
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+config/credentials.yml.enc
+config/master.key
+
+# === Ruby / Bundler ===
+/.bundle/
+/.ruby-version
+/.ruby-gemset
+/vendor/bundle
+/Gemfile.lock
+*.gem
+*.rbc
+.bundle
+
+# === Coverage & Testing ===
+/coverage/
+/spec/reports/
+/tmp/
+.rspec_status
+
+# === OS & Editor ===
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# === Logs & Temporary ===
+*.log
+/log/
+/tmp/
+*.tmp
+*.temp
+
+# === Project Specific ===
+/Music/
+/Suno/
+*.mp3
+*.wav
+*.flac
+*.png
+*.jpg
+*.jpeg
+.suno/
+~/.suno/
+
+# === Node (if any frontend later) ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
