@@ -2,6 +2,8 @@
 
 require "suno/version"
 require "suno/config"
+require "suno/song"
+require "suno/client"
 
 module Suno
   class Error < StandardError; end
@@ -25,11 +27,17 @@ module Suno
   # ============================================
   # UNIFIED HIGH-LEVEL API
   # ============================================
-  #
-  # This is the recommended entry point.
-  # It will be expanded carefully as the generation pipeline matures.
-  #
   def self.generate(song_or_title, **options)
-    raise Error, "Generation pipeline is under careful construction. See README."
+    song = if song_or_title.is_a?(String)
+             Song.build do
+               title song_or_title
+               concept options[:concept] if options[:concept]
+               style options[:style] if options[:style]
+             end
+           else
+             song_or_title
+           end
+
+    Client.new.generate(song, **options)
   end
 end
