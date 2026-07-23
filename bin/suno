@@ -1,0 +1,49 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "thor"
+require "pastel"
+require "suno"
+
+class SunoCLI < Thor
+  def initialize(*args)
+    super
+    @pastel = Pastel.new
+  end
+
+  desc "version", "Show the current version of the gem"
+  def version
+    puts "suno #{Suno::VERSION}"
+  end
+
+  desc "doctor", "Check system requirements and configuration"
+  def doctor
+    puts @pastel.cyan("🔍 Checking system...")
+
+    # Check FFmpeg
+    begin
+      `#{Suno.config.ffmpeg_path} -version`
+      puts @pastel.green("✅ FFmpeg found")
+    rescue
+      puts @pastel.red("❌ FFmpeg not found. Please install it.")
+    end
+
+    puts @pastel.green("✅ Configuration loaded")
+    puts "Storage path: #{Suno.config.storage_path}"
+    puts "Provider: #{Suno.config.provider}"
+  end
+
+  desc "generate TITLE", "Generate a track (pipeline under construction)"
+  def generate(title)
+    puts @pastel.yellow("Generation pipeline is under careful construction.")
+    puts "Title received: #{title}"
+    puts "See the README for current status."
+  end
+
+  desc "list", "List previous generations (coming soon)"
+  def list
+    puts @pastel.yellow("Job history will be available in a future release.")
+  end
+end
+
+SunoCLI.start(ARGV)
