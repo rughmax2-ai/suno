@@ -63,22 +63,15 @@ module Suno
     end
 
     # ============================================
-    # Finalization (Download + Enrichment hooks)
+    # Finalization (Download + Normalization)
     # ============================================
 
     def finalize(raw_result, song)
-      # This method will later:
-      # 1. Download the audio if only a URL is returned
-      # 2. Run PostProcessor
-      # 3. Generate and embed CoverArt
-      #
-      # For now we return a consistent shape so the rest of the system can build on it.
-
       unless raw_result.is_a?(Hash)
         raise ProviderError, "Provider returned invalid result format"
       end
 
-      {
+      result = {
         status: raw_result[:status] || "unknown",
         audio_url: raw_result[:audio_url],
         local_path: raw_result[:local_path],
@@ -86,6 +79,57 @@ module Suno
         generation_id: raw_result[:generation_id],
         raw: raw_result
       }
+
+      # If we already have a local file, skip download
+      if result[:local_path] && File.exist?(result[:local_path].to_s)
+        return run_normalization(result, song)
+      end
+
+      # Download remote audio if we only have a URL
+      if result[:audio_url]
+        require_relative "downloader" unless defined?(Suno::Downloader)
+
+        downloader = Downloader.new(song: song)
+        download_info = downloader.download(
+          result[:audio_url],
+          preferred_name: song.title
+        )
+
+        result[:local_path] = download_info[:local_path]
+        result[:filename]   = download_info[:filename]
+        result[:size]       = download_info[:size]
+      else
+        raise ProviderError, "No audio_url or local_path returned from provider"
+      end
+
+      # Run loudness normalization
+      run_normalization(result, song)
+    end
+
+    def run_normalization(result, song)
+      return result unless result[:local_path] && File.exist?(result[:local_path])
+
+      # Only normalize if the song requested it, or by default for quality
+      should_normalize = true
+      if song.respond_to?(:post_process_config) && song.post_process_config.is_a?(Hash)
+        should_normalize = song.post_process_config.fetch(:normalize, true)
+      end
+
+      if should_normalize
+        require_relative "normalizer" unless defined?(Suno::Normalizer)
+
+        begin
+          Normalizer.new(result[:local_path]).process!
+          result[:normalized] = true
+        rescue => e
+          warn "[Suno] Normalization failed: #{e.message}"
+          result[:normalized] = false
+          result[:normalization_error] = e.message
+        end
+      end
+
+      result[:status] = "ready"
+      result
     end
 
     # ============================================
