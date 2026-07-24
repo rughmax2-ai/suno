@@ -9,6 +9,8 @@ module Suno
                   :target_lufs,
                   :true_peak,
                   :loudness_range,
+                  :fade_in,
+                  :fade_out,
                   :default_artist,
                   :default_album
 
@@ -26,6 +28,10 @@ module Suno
       @target_lufs       = -14.0
       @true_peak         = -1.5
       @loudness_range    = 11.0
+
+      # Fade defaults (seconds)
+      @fade_in           = 0.5
+      @fade_out          = 2.0
 
       @default_artist    = "AI Generated"
       @default_album     = "Suno Generations"
