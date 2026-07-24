@@ -4,6 +4,7 @@ require "net/http"
 require "uri"
 require "fileutils"
 require "securerandom"
+require "openssl"
 
 module Suno
   class Downloader
@@ -77,10 +78,10 @@ module Suno
     def sanitize(name)
       name.to_s
           .strip
-          .gsub(/[^\w\s\-]/, "")      # allow only word chars, spaces, hyphens
-          .gsub(/\s+/, "_")            # spaces → underscores
-          .gsub(/_+", "_")             # collapse multiple underscores
-          .gsub(/\A_+|_+\z/, "")       # trim leading/trailing underscores
+          .gsub(/[^\w\s\-]/, "")   # allow only word chars, spaces, hyphens
+          .gsub(/\s+/, "_")         # spaces → underscores
+          .gsub(/_+/, "_")          # collapse multiple underscores
+          .gsub(/\A_+|_+\z/, "")    # trim leading/trailing underscores
           .downcase
     end
 
