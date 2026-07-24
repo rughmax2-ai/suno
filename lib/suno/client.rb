@@ -63,7 +63,8 @@ module Suno
     end
 
     # ============================================
-    # Finalization (Download → Normalize → Tag)
+    # Finalization Pipeline
+    # Download → Normalize → Tag → CoverArt
     # ============================================
 
     def finalize(raw_result, song)
@@ -80,7 +81,7 @@ module Suno
         raw: raw_result
       }
 
-      # Download if needed
+      # 1. Download
       if result[:local_path] && File.exist?(result[:local_path].to_s)
         # already local
       elsif result[:audio_url]
@@ -99,11 +100,14 @@ module Suno
         raise ProviderError, "No audio_url or local_path returned from provider"
       end
 
-      # Normalize
+      # 2. Normalize
       run_normalization(result, song)
 
-      # Tag
+      # 3. Tag
       run_tagging(result, song)
+
+      # 4. Cover Art
+      run_cover_art(result, song)
 
       result[:status] = "ready"
       result
@@ -160,6 +164,54 @@ module Suno
       end
 
       result
+    end
+
+    def run_cover_art(result, song)
+      return result unless result[:local_path] && File.exist?(result[:local_path])
+
+      require_relative "cover_art" unless defined?(Suno::CoverArt)
+
+      begin
+        cover_path = CoverArt.generate(song)
+        result[:cover_path] = cover_path
+
+        # Embed the cover into the MP3
+        embed_cover(result[:local_path], cover_path)
+        result[:cover_embedded] = true
+      rescue => e
+        warn "[Suno] Cover art failed: #{e.message}"
+        result[:cover_embedded] = false
+        result[:cover_error] = e.message
+      end
+
+      result
+    end
+
+    def embed_cover(audio_path, cover_path)
+      return unless File.exist?(audio_path) && File.exist?(cover_path)
+
+      output = "#{audio_path}.with_cover.mp3"
+
+      command = [
+        Suno.config.ffmpeg_path,
+        "-y",
+        "-i", audio_path,
+        "-i", cover_path,
+        "-map", "0:a",
+        "-map", "1",
+        "-c", "copy",
+        "-metadata:s:v", "title=Album cover",
+        "-metadata:s:v", "comment=Cover (front)",
+        "-disposition:v", "attached_pic",
+        output
+      ]
+
+      success = system(*command, out: File::NULL, err: File::NULL)
+
+      if success && File.exist?(output)
+        FileUtils.mv(output, audio_path)
+        puts "🖼️  Cover embedded into MP3"
+      end
     end
 
     # ============================================
