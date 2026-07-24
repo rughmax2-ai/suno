@@ -5,6 +5,7 @@ module Suno
     class Error < StandardError; end
     class ProviderError < Error; end
     class ConfigurationError < Error; end
+    class ValidationError < Error; end
 
     SUPPORTED_PROVIDERS = %i[stable_audio musicgen].freeze
 
@@ -20,7 +21,11 @@ module Suno
     # ============================================
 
     def generate(song, max_retries: 1, **options)
-      raise ArgumentError, "song must respond to #title" unless song.respond_to?(:title)
+      validate_song!(song)
+
+      unless max_retries.is_a?(Integer) && max_retries.between?(0, 5)
+        raise ValidationError, "max_retries must be an integer between 0 and 5"
+      end
 
       attempt = 0
 
@@ -40,6 +45,23 @@ module Suno
     end
 
     private
+
+    def validate_song!(song)
+      raise ValidationError, "song cannot be nil" if song.nil?
+
+      unless song.respond_to?(:title)
+        raise ValidationError, "song must respond to #title"
+      end
+
+      title = song.title
+      if title.nil? || title.to_s.strip.empty?
+        raise ValidationError, "song title is required"
+      end
+
+      if title.to_s.length > 120
+        raise ValidationError, "song title is too long (max 120 characters)"
+      end
+    end
 
     # ============================================
     # Provider Dispatch
