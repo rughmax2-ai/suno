@@ -63,7 +63,7 @@ module Suno
     end
 
     # ============================================
-    # Finalization (Download + Normalization)
+    # Finalization (Download → Normalize → Tag)
     # ============================================
 
     def finalize(raw_result, song)
@@ -80,13 +80,10 @@ module Suno
         raw: raw_result
       }
 
-      # If we already have a local file, skip download
+      # Download if needed
       if result[:local_path] && File.exist?(result[:local_path].to_s)
-        return run_normalization(result, song)
-      end
-
-      # Download remote audio if we only have a URL
-      if result[:audio_url]
+        # already local
+      elsif result[:audio_url]
         require_relative "downloader" unless defined?(Suno::Downloader)
 
         downloader = Downloader.new(song: song)
@@ -102,14 +99,19 @@ module Suno
         raise ProviderError, "No audio_url or local_path returned from provider"
       end
 
-      # Run loudness normalization
+      # Normalize
       run_normalization(result, song)
+
+      # Tag
+      run_tagging(result, song)
+
+      result[:status] = "ready"
+      result
     end
 
     def run_normalization(result, song)
       return result unless result[:local_path] && File.exist?(result[:local_path])
 
-      # Only normalize if the song requested it, or by default for quality
       should_normalize = true
       if song.respond_to?(:post_process_config) && song.post_process_config.is_a?(Hash)
         should_normalize = song.post_process_config.fetch(:normalize, true)
@@ -128,7 +130,35 @@ module Suno
         end
       end
 
-      result[:status] = "ready"
+      result
+    end
+
+    def run_tagging(result, song)
+      return result unless result[:local_path] && File.exist?(result[:local_path])
+
+      should_tag = true
+      tag_config = {}
+
+      if song.respond_to?(:post_process_config) && song.post_process_config.is_a?(Hash)
+        should_tag = song.post_process_config.fetch(:tag, true)
+        tag_config = song.post_process_config.slice(
+          :artist, :album, :genre, :year, :embed_prompt, :ai_disclosure, :title
+        )
+      end
+
+      if should_tag
+        require_relative "tagger" unless defined?(Suno::Tagger)
+
+        begin
+          Tagger.new(result[:local_path], song: song, config: tag_config).tag!
+          result[:tagged] = true
+        rescue => e
+          warn "[Suno] Tagging failed: #{e.message}"
+          result[:tagged] = false
+          result[:tagging_error] = e.message
+        end
+      end
+
       result
     end
 
